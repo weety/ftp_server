@@ -6,7 +6,7 @@ from SCons.Script import *
 
 TARGET = 'ftpd'
 
-env = Environment(tools = ['mingw'],
+env = Environment(tools = ['gcc', 'gnulink'],
 	AS = config.AS, #ASFLAGS = config.AFLAGS,
 	CC = config.CC, CCFLAGS = config.CFLAGS,
 	AR = config.AR, ARFLAGS = '-rc',
