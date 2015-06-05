@@ -744,6 +744,58 @@ err1:
 		}
 		close_data_connection(session);
 	}
+	else if (str_begin_with(buf, "APPE")==0)
+	{
+		open_data_connection(session);
+		if(session->is_anonymous == true)
+		{
+			sprintf(sbuf, "550 Permission denied.\r\n");
+			send(session->sockfd, sbuf, strlen(sbuf), 0);
+			close_data_connection(session);
+			free(sbuf);
+			return 0;
+		}
+
+		build_full_path(session, parameter_ptr, filename, 256);
+
+		fd = open(filename, O_WRONLY | O_APPEND, 0);
+		if(fd < 0)
+		{
+			sprintf(sbuf, "550 Cannot open \"%s\" for writing.\r\n", filename);
+			send(session->sockfd, sbuf, strlen(sbuf), 0);
+			close_data_connection(session);
+			free(sbuf);
+			return 0;
+		}
+		sprintf(sbuf, "150 Opening binary mode data connection for \"%s\".\r\n", filename);
+		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		FD_ZERO(&readfds);
+		FD_SET(session->pasv_sockfd, &readfds);
+		printf("Waiting %d seconds for data...\n", tv.tv_sec);
+		while(select(session->pasv_sockfd+1, &readfds, 0, 0, &tv)>0 )
+		{
+			if((numbytes=recv(session->pasv_sockfd, sbuf, FTP_BUFFER_SIZE, 0))>0)
+			{
+				write(fd, sbuf, numbytes);
+			}
+			else if(numbytes==0)
+			{
+				close(fd);
+				close_data_connection(session);
+				sprintf(sbuf, "226 Finished.\r\n");
+				send(session->sockfd, sbuf, strlen(sbuf), 0);
+				break;
+			}
+			else if(numbytes==-1)
+			{
+				close(fd);
+				close_data_connection(session);
+				free(sbuf);
+				return -1;
+			}
+		}
+		close_data_connection(session);
+	}
 	else if(str_begin_with(buf, "SIZE")==0)
 	{
 		int file_size;
